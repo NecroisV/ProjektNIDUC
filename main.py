@@ -1,50 +1,32 @@
+import math
 import random
+from chanel import Channel
+from receiever import Receiver
+from transmiter import Transmitter
 
-def calculate_division(data, divider):
-    data_len = data.bit_length()
-    for i in range(data_len - divider.bit_length(), -1, -1):
-        if (data >> (divider.bit_length() - 1 + i)) & 1:
-            data ^= divider << i
-    return data
+transmitter_address = 0b11
+receiver_address = 0b10
 
-def calculate_crc(data: int, divider: int) -> int:
-    #Calculates the CRC remainder for the sender
-    padded_data = data << divider.bit_length() - 1
+chanel = Channel(0.001)
 
-    rest = calculate_division(padded_data, divider)
-    return rest
-
-def verify_crc(received_message: int, divider: int) -> bool:
-    #Verifies a received frame
-    return calculate_division(received_message, divider) == 0
-
-
-CRC_length = 32
+CRC_length = 3
 CRC_divider = random.randint(2 ** (CRC_length - 1), (2**CRC_length) - 1)
-print(f"Random CRC Divider:  {bin(CRC_divider)}")
 
-address = 0b1
+chunk_size = 128
+max_data_length = int(math.log(chunk_size, 2))
 
-package_number = 0b1
-number_all_packages = 32
+file_name = "test.txt"
+transmitter = Transmitter(
+    transmitter_address, chunk_size, CRC_divider, max_data_length
+)
+receiver = Receiver(CRC_divider)
 
-data = 0b1000011110000111100001111000011110000111100001111000011110000111100001111000011110000111100001111000011110000111100001111000011110000111100001111000011110000111100001111000011110000111100001111000011110000111100001111000011110000111100001111000011110000111
-data_length = data.bit_length()
-data_length_length = 16
+# Use a standard 'for' loop to iterate through every yielded frame naturally
+for frame in transmitter.start_transmitting(file_name, receiver_address):
+  # Send frame through the noisy channel
+  sent_frame = chanel.send_data(frame)
+  print(bin(sent_frame))
 
-print(f"Original Data:       {bin(data)}")
-
-sending_data = address << number_all_packages | package_number
-sending_data = sending_data << data_length_length | data_length
-sending_data = sending_data << data_length | data
-
-print(f"Sending Data:       {bin(sending_data)}")
-deg = CRC_divider.bit_length() - 1
-crc = calculate_crc(sending_data, CRC_divider)
-print(f"Calculated CRC:      {bin(crc)}")
-
-transmitted_frame = (sending_data << deg) | crc
-print(f"Transmitted Frame:   {bin(transmitted_frame)}")
-print("-" * 40)
-
-print(f"Receiver checks clean frame:    Valid? {verify_crc(transmitted_frame, CRC_divider)}")
+  # Check if the receiver validates it successfully
+  is_valid = receiver.verify_crc(sent_frame)
+  print(f"Frame received & verified: {is_valid}")
