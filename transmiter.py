@@ -20,7 +20,7 @@ class Transmitter:
         self.package_number = 1
         self.file = None
 
-        self.number_all_packages = 32 #it is 2^32 but for convenience it is saved as 32
+        self.number_all_packages = 16 #it is 2^16 but for convenience it is saved as 16
         self.deg = divider.bit_length() - 1
 
     def open_file(self, filename):
