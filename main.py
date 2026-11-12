@@ -33,12 +33,9 @@ while p<=1:
   for i in range(10):
     invalid_frames = 0
     all_frames = 0
-    # Use a standard 'for' loop to iterate through every yielded frame naturally
     for frame in transmitter.start_transmitting(file_name, receiver_address):
-      # Send frame through the noisy channel
       sent_frame = chanel.send_data(frame)
 
-      # Check if the receiver validates it successfully
       is_valid = receiver.verify_crc(sent_frame)
       if not is_valid:
         invalid_frames += 1
