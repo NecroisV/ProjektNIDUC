@@ -31,17 +31,32 @@ class Frame:
         crc = detector.calculate(header_and_data)
         return header_and_data + crc
     
-    
-if __name__ == "__main__":
-    frame = Frame(
-        src=1,
-        dst=2,
-        frame_type=FrameType.DATA,
-        seq=0,
-        data=b"ABCD"
-    )
+    @classmethod
+    def from_bytes(cls, raw: bytes, detector):
 
-    raw = frame.to_bytes()
+        crc_size = (detector.width + 7) // 8 
 
-    print("HEX:", raw.hex(" "))
-    print("BIN:", " ".join(f"{byte:08b}" for byte in raw))
+        if len(raw) < 7 + crc_size:
+            raise ValueError("Ramka jest za krótka")
+
+        data_without_crc = raw[:-crc_size]
+        received_crc = raw[-crc_size:]
+
+        if not detector.verify(data_without_crc, received_crc):
+            raise ValueError("Niepoprawne CRC")
+
+        src = raw[0]
+        dst = raw[1]
+        frame_type = FrameType(raw[2])
+        seq = int.from_bytes(raw[3:5], "big")
+        length = int.from_bytes(raw[5:7], "big")
+
+        if length > 256:
+            raise ValueError("Za duża długość DATA")
+
+        data = raw[7:-crc_size]
+
+        if len(data) != length:
+            raise ValueError("Niepoprawna długość DATA")
+
+        return cls(src, dst, frame_type, seq, data)
