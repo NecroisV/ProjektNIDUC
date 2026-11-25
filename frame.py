@@ -1,4 +1,5 @@
 from enum import IntEnum
+
 class FrameType(IntEnum):
     DATA = 1 #przesyłanie fragmentu pliku
     ACK = 2 #potwierdzenie odebrania ramki
@@ -17,8 +18,8 @@ class Frame:
     def length(self):
         return len(self.data)  #Automatycznie określa liczbę bajtów danych
 
-    def to_bytes(self):
-        return(
+    def to_bytes(self,detector):
+        header_and_data = (
             self.src.to_bytes(1, "big")
             + self.dst.to_bytes(1, "big")
             + int(self.frame_type).to_bytes(1, "big")
@@ -27,16 +28,20 @@ class Frame:
             + self.data
         )
 
-frame = Frame(
-    src=1,
-    dst=2,
-    frame_type=FrameType.DATA,
-    seq=0,
-    data=b"ABCD"
-)
+        crc = detector.calculate(header_and_data)
+        return header_and_data + crc
+    
+    
+if __name__ == "__main__":
+    frame = Frame(
+        src=1,
+        dst=2,
+        frame_type=FrameType.DATA,
+        seq=0,
+        data=b"ABCD"
+    )
 
-raw = frame.to_bytes()
+    raw = frame.to_bytes()
 
-print("HEX:", raw.hex(" "))
-print("BIN:", " ".join(f"{byte:08b}" for byte in raw))
-
+    print("HEX:", raw.hex(" "))
+    print("BIN:", " ".join(f"{byte:08b}" for byte in raw))
