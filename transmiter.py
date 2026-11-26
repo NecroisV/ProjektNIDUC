@@ -32,24 +32,18 @@ class Transmitter:
     self.frames_attempted = 0
     self.failed_frames = 0
     self.send_calls = 0
-    self.none_frames = 0
 
   def reset_stats(self):
     self.total_retransmissions = 0
     self.frames_attempted = 0
     self.failed_frames = 0
     self.send_calls = 0
-    self.none_frames = 0
 
   def mean_retransmissions(self) -> float:
     if self.frames_attempted == 0:
       return 0.0
     return self.total_retransmissions / self.frames_attempted
 
-  def mean_none_frames(self) -> float:
-    if self.send_calls == 0:
-      return 0.0
-    return self.none_frames / self.send_calls
 
   def check_ack(self, message, type_bits=3):
     if message is None:
@@ -62,18 +56,19 @@ class Transmitter:
     msg_type = message >> (message.bit_length() - type_bits)
     return msg_type == self.type_of_message.get("ACK")
 
+
   def open_file(self, filename):
     if self.file:
       self.file.close()
     self.file = open(filename, "rb")
     self.package_number = 1
 
+
   def _send_once(self, frame: int) -> int | None:
     self.send_calls += 1
     response = self.chanel.send_data(frame)
-    if response is None:
-      self.none_frames += 1
     return response
+
 
   def start_transmitting(self, file_name, receiver_address):
     self.file = None

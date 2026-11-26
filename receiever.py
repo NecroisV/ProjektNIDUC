@@ -22,23 +22,17 @@ class Receiver:
     self.receive_calls = 0
     self.total_frames = 0
     self.bad_frames = 0
-    self.none_frames = 0
 
   def reset_stats(self):
     self.receive_calls = 0
     self.total_frames = 0
     self.bad_frames = 0
-    self.none_frames = 0
 
   def mean_bad_frames(self) -> float:
     if self.total_frames == 0:
       return 0.0
     return self.bad_frames / self.total_frames
 
-  def mean_none_frames(self) -> float:
-    if self.receive_calls == 0:
-      return 0.0
-    return self.none_frames / self.receive_calls
 
   def receive(self, message):
     self.receive_calls += 1
