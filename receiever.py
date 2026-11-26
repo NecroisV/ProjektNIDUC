@@ -1,12 +1,27 @@
-from universal_calculations import calculate_division
+from frame import Frame, FrameType
 
 
 class Receiver:
+    def __init__(self, divider):
+        self.divider = divider
 
-  def __init__(self, divider: int):
-    # Store the divider so the receiver knows the CRC standard
-    self.divider = divider
+    def receive(self, raw: bytes, detector):
+        try:
+            frame = Frame.from_bytes(raw, detector)
+        except ValueError:
+            return None
 
-  def verify_crc(self, received_message: int) -> bool:
-    """Verifies a received frame using the stored divider."""
-    return calculate_division(received_message, self.divider) == 0
+        if frame.frame_type != FrameType.DATA:
+            return None
+
+        print("Odbiornik otrzymał:", frame.data)
+
+        ack = Frame(
+            src=frame.dst,
+            dst=frame.src,
+            frame_type=FrameType.ACK,
+            seq=frame.seq,
+            data=b""
+        )
+
+        return ack.to_bytes(detector)
