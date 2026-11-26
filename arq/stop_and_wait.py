@@ -22,37 +22,41 @@ class StopAndWait:
 
         # Tworzymy bajty ramki DATA
         raw = frame.to_bytes(self.detector)
+        for attempt in range(1, 6):
+            print("Próba:", attempt)
 
-        # Wysyłamy DATA przez kanał BSC
-        received_raw = self.channel.send_data(raw)
+            # Wysyłamy DATA przez kanał BSC
+            received_raw = self.channel.send_data(raw)
 
-        # Odbiornik sprawdza DATA i tworzy ACK
-        ack_raw = self.receiver.receive(received_raw,self.detector)
+            # Odbiornik sprawdza DATA i tworzy ACK
+            ack_raw = self.receiver.receive(received_raw,self.detector)
 
-        # Jeśli DATA była uszkodzona, ACK nie powstał
-        if ack_raw is None:
-            print("Brak ACK")
-            return False
+            # Jeśli DATA była uszkodzona, ACK nie powstał
+            if ack_raw is None:
+                print("Brak ACK")
+                continue
 
-        # ACK również przechodzi przez kanał
-        received_ack_raw = self.channel.send_data(ack_raw)
+            # ACK również przechodzi przez kanał
+            received_ack_raw = self.channel.send_data(ack_raw)
 
-        # Nadajnik sprawdza otrzymane ACK
-        try:
-            ack = Frame.from_bytes(received_ack_raw,self.detector)
-        except ValueError:
-            print("Uszkodzone ACK")
-            return False
+            # Nadajnik sprawdza otrzymane ACK
+            try:
+                ack = Frame.from_bytes(received_ack_raw,self.detector)
+            except ValueError:
+                print("uszkodzone ACK - powtórz")
+                continue
 
-        # Sprawdzamy, czy ACK potwierdza właściwą ramkę
-        if ack.frame_type != FrameType.ACK or ack.seq != self.seq:
-            print("Nieprawidłowe ACK")
-            return False
+            # Sprawdzamy, czy ACK potwierdza właściwą ramkę
+            if ack.frame_type != FrameType.ACK or ack.seq != self.seq:
+                print("Nieprawidłowe ACK - powtórz")
+                continue
 
-        print("Otrzymano ACK dla SEQ =", self.seq)
+            print("Otrzymano ACK dla SEQ =", self.seq)
 
-        # Przechodzimy do kolejnego numeru ramki
-        self.seq = (self.seq + 1) % 2
+            # Przechodzimy do kolejnego numeru ramki
+            self.seq = (self.seq + 1) % 2
 
-        return True
+            return True
+        print("Nie udało się wysłać ramki")
+        return False
     
