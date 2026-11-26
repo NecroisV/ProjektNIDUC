@@ -1,5 +1,8 @@
 import random
-
+#CZEGO BRAKUJE
+#STATYSTYK
+#ZABEPOECZENIE PRZED BŁĘDAMI
+#DRUGI MODEL GILBER-ELLIOTT
 
 class Channel:
   def __init__(self, error_chance):
@@ -7,9 +10,9 @@ class Channel:
 
   def send_data(self, raw: bytes) -> bytes:
     corrupted = bytearray(raw)
-    # Bity przed transmisją
-    #print("\nPRZED BSC:")
-    #print(" ".join(f"{byte:08b}" for byte in raw))
+     #Bity przed transmisją
+    print("\nPRZED BSC:")
+    print(" ".join(f"{byte:08b}" for byte in raw))
     
     for i in range(len(corrupted)):
             for bit in range(8):
@@ -17,6 +20,6 @@ class Channel:
                     corrupted[i] ^= (1 << bit)
 
     # Bity po transmisji
-    #print("PO BSC:")
-    #print(" ".join(f"{byte:08b}" for byte in corrupted))
+    print("PO BSC:")
+    print(" ".join(f"{byte:08b}" for byte in corrupted))
     return bytes(corrupted)
