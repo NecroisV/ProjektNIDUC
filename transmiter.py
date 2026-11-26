@@ -1,75 +1,128 @@
-from universal_calculations import calculate_division
-
-
-def calculate_crc(data, divider):
-    #Calculates the CRC remainder for the sender
-    padded_data = data << divider.bit_length() - 1
-
-    rest = calculate_division(padded_data, divider)
-    return rest
+from universal_calculations import calculate_division, create_frame
 
 
 class Transmitter:
-    def __init__(self, address, chunk_size, divider, max_data_length):
-        self.address = address
-        self.chunk_size = chunk_size
-        self.divider = divider
-        self.max_data_length = max_data_length
 
-        # State tracking
-        self.package_number = 1
-        self.file = None
+  def __init__(
+      self,
+      transmitter_address,
+      chunk_size,
+      divider,
+      max_data_length,
+      chanel,
+      number_all_packages,
+  ):
+    self.transmitter_address = transmitter_address
+    self.chunk_size = chunk_size
+    self.divider = divider
+    self.max_data_length = max_data_length
+    self.chanel = chanel
 
-        self.number_all_packages = 16 #it is 2^16 but for convenience it is saved as 16
-        self.deg = divider.bit_length() - 1
+    # State tracking
+    self.package_number = 1
+    self.file = None
 
-    def open_file(self, filename):
-        #Opens (or re-opens) the file from the very beginning.
-        if self.file:
-            self.file.close()
-        self.file = open(filename, "rb")
-        self.package_number = 1  # Reset package counter on fresh open
+    self.number_all_packages = number_all_packages
 
-    def start_transmitting(self, file_name, receiver_address):
-        self.file = None
-        prepared_frame = self.get_next_frame(file_name, receiver_address)
-        while prepared_frame:
-            yield prepared_frame
-            prepared_frame = self.get_next_frame(file_name, receiver_address)
+    self.max_retransmissions = 10
+    self.type_of_message = {"DATA": 0b111, "ACK": 0b110, "NCK": 0b100}
 
-    def get_next_frame(self, file_name, receiver_address) -> int | None:
-        """Reads the next chunk, builds the frame, and returns it.
+    # Statystyki transmisji
+    self.total_retransmissions = 0
+    self.frames_attempted = 0
+    self.failed_frames = 0
+    self.send_calls = 0
+    self.none_frames = 0
 
-        Returns None when the end of the file is reached.
-        """
-        if self.file is None:
-            self.open_file(file_name)
+  def reset_stats(self):
+    self.total_retransmissions = 0
+    self.frames_attempted = 0
+    self.failed_frames = 0
+    self.send_calls = 0
+    self.none_frames = 0
 
-        # Read a single chunk from the current file position
-        chunk = self.file.read(self.chunk_size)
-        if not chunk:
-            # End of file reached; close the handle
-            self.file.close()
-            self.file = None
-            return None
+  def mean_retransmissions(self) -> float:
+    if self.frames_attempted == 0:
+      return 0.0
+    return self.total_retransmissions / self.frames_attempted
 
-        # Process data and pack
-        data = int.from_bytes(chunk, byteorder="big")
-        data_length = data.bit_length()
+  def mean_none_frames(self) -> float:
+    if self.send_calls == 0:
+      return 0.0
+    return self.none_frames / self.send_calls
 
-        sending_data = int(receiver_address) << 2 | self.address
-        sending_data = sending_data << self.number_all_packages | self.package_number
-        sending_data = sending_data << self.max_data_length | data_length
-        sending_data = sending_data << data_length | data
+  def check_ack(self, message, type_bits=3):
+    if message is None:
+      return False
+    if calculate_division(message, self.divider) != 0:
+      return False
+    if message.bit_length() < type_bits:
+      return False
 
-        # Calculate CRC and build frame
-        crc = calculate_crc(sending_data, self.divider)
-        frame = (sending_data << self.deg) | crc
+    msg_type = message >> (message.bit_length() - type_bits)
+    return msg_type == self.type_of_message.get("ACK")
 
-        # Increment package number for the next frame
-        self.package_number = (self.package_number + 1) % (
-                2 ** self.number_all_packages
-        )
+  def open_file(self, filename):
+    if self.file:
+      self.file.close()
+    self.file = open(filename, "rb")
+    self.package_number = 1
 
-        return frame
+  def _send_once(self, frame: int) -> int | None:
+    self.send_calls += 1
+    response = self.chanel.send_data(frame)
+    if response is None:
+      self.none_frames += 1
+    return response
 
+  def start_transmitting(self, file_name, receiver_address):
+    self.file = None
+    prepared_frame = self.get_next_frame(file_name, receiver_address)
+
+    while prepared_frame is not None:
+      self.frames_attempted += 1
+      retransmissions = 0
+      got_ack = False
+
+      while retransmissions <= self.max_retransmissions:
+        got_ack = self.check_ack(self._send_once(prepared_frame))
+        if got_ack:
+          break
+        retransmissions += 1
+        self.total_retransmissions += 1
+
+      if not got_ack:
+        self.failed_frames += 1
+
+      prepared_frame = self.get_next_frame(file_name, receiver_address)
+
+  def get_next_frame(self, file_name, receiver_address) -> int | None:
+    if self.file is None:
+      self.open_file(file_name)
+
+    chunk = self.file.read(self.chunk_size)
+    if not chunk:
+      self.file.close()
+      self.file = None
+      return None
+
+    data = int.from_bytes(chunk, byteorder="big")
+    data_length = data.bit_length()
+
+    frame = create_frame(
+        self.type_of_message.get("DATA"),
+        self.transmitter_address,
+        receiver_address,
+        self.number_all_packages,
+        self.package_number,
+        self.max_data_length,
+        data_length,
+        data,
+        self.divider,
+    )
+
+    self.package_number = (self.package_number + 1) % (
+        2**self.number_all_packages
+    )
+
+    return frame
