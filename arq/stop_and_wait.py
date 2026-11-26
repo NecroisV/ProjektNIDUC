@@ -1,5 +1,8 @@
 from frame import Frame, FrameType
-
+#BRAKUJE JESZCZE:
+#PONOWNEGO WYSYLANIA DANYCH
+#OBSUŁGI TIMEAUTOW
+#JESZCZE PARU RZECZY PEWNIE
 class StopAndWait:
     def __init__(self, transmitter, receiver, channel, detector):
         self.transmitter = transmitter
@@ -52,3 +55,4 @@ class StopAndWait:
         self.seq = (self.seq + 1) % 2
 
         return True
+    
